@@ -1,0 +1,366 @@
+//@version=6
+strategy("betsandthreats - V6 - Weighted Avg + Manual Target + WATCH/CONFIRM Predict", overlay=true, initial_capital=1000, default_qty_type=strategy.percent_of_equity, default_qty_value=20, pyramiding=10, process_orders_on_close=true, close_entries_rule="ANY", max_labels_count=500)
+
+// ========================== EXCHANGE INPUTS ==========================
+string sym_coinbase = input.symbol("COINBASE:BTCUSD", "Coinbase BTCUSD")
+string sym_kraken   = input.symbol("KRAKEN:BTCUSD", "Kraken BTCUSD")
+string sym_gemini   = input.symbol("GEMINI:BTCUSD", "Gemini BTCUSD")
+string sym_crypto   = input.symbol("CRYPTOCOM:BTCUSD", "Crypto.com BTCUSD")
+
+float coinbase_weight = input.float(0.25, "Coinbase Weight", step=0.01)
+float kraken_weight   = input.float(0.25, "Kraken Weight", step=0.01)
+float gemini_weight   = input.float(0.37, "Gemini Weight", step=0.01)
+float crypto_weight   = input.float(0.12, "Crypto.com Weight", step=0.01)
+
+bool show_avg_candles    = input.bool(true, "Show Weighted Average Candles")
+bool show_exchange_lines = input.bool(false, "Show Exchange Lines")
+
+// ========================== INPUTS ==========================
+int macro_window         = input.int(15, "Kalshi Market Window (Mins)")
+int lockout_mins         = input.int(0, "Initial Lockout Period (Mins)")
+int ema_length           = input.int(9, "Fast Signal EMA")
+int max_tiers_per_block  = input.int(4, "Max Scale-In Tiers Per 15m Block")
+
+bool use_manual_target   = input.bool(true, "Use Manual Kalshi Target")
+float manual_target      = input.float(0.0, "Manual Kalshi Target", step=0.5)
+
+int exhaust_lookback     = input.int(30, "Exhaustion Volatility Lookback")
+float exhaust_multiplier = input.float(2.0, "Overextension Multiplier", step=0.1)
+
+int jewel_rsi_len        = input.int(10, "Jewel RSI Length")
+int jewel_stoch_len      = input.int(14, "Jewel Stochastic Length")
+int jewel_k              = input.int(3, "Jewel %K Smoothing")
+int jewel_d              = input.int(3, "Jewel %D Smoothing")
+
+float watch_buffer       = input.float(6.0, "WATCH Target Buffer", step=0.5)
+float watch_body_min     = input.float(0.55, "WATCH Body Strength", step=0.05)
+int watch_minutes_limit  = input.int(4, "WATCH Minutes Limit")
+
+float confirm_buffer     = input.float(8.0, "CONFIRM Target Buffer", step=0.5)
+float confirm_body_min   = input.float(0.60, "CONFIRM Body Strength", step=0.05)
+
+int rev_dev_len          = input.int(15, "Reversion Dev Length")
+float rev_threshold      = input.float(1.25, "Reversion Band Threshold", step=0.05)
+float rev_wick_threshold = input.float(0.2, "Reversion Wick Threshold", step=0.05)
+int rev_early_limit      = input.int(5, "Reversion Early Bar Limit")
+
+int lookback_blocks      = input.int(16, "HUD Lookback Blocks", minval=4, maxval=100)
+
+// ========================== EXCHANGE DATA ==========================
+cb_o = request.security(sym_coinbase, timeframe.period, open, ignore_invalid_symbol=true)
+cb_h = request.security(sym_coinbase, timeframe.period, high, ignore_invalid_symbol=true)
+cb_l = request.security(sym_coinbase, timeframe.period, low, ignore_invalid_symbol=true)
+cb_c = request.security(sym_coinbase, timeframe.period, close, ignore_invalid_symbol=true)
+
+kr_o = request.security(sym_kraken, timeframe.period, open, ignore_invalid_symbol=true)
+kr_h = request.security(sym_kraken, timeframe.period, high, ignore_invalid_symbol=true)
+kr_l = request.security(sym_kraken, timeframe.period, low, ignore_invalid_symbol=true)
+kr_c = request.security(sym_kraken, timeframe.period, close, ignore_invalid_symbol=true)
+
+gm_o = request.security(sym_gemini, timeframe.period, open, ignore_invalid_symbol=true)
+gm_h = request.security(sym_gemini, timeframe.period, high, ignore_invalid_symbol=true)
+gm_l = request.security(sym_gemini, timeframe.period, low, ignore_invalid_symbol=true)
+gm_c = request.security(sym_gemini, timeframe.period, close, ignore_invalid_symbol=true)
+
+cr_o = request.security(sym_crypto, timeframe.period, open, ignore_invalid_symbol=true)
+cr_h = request.security(sym_crypto, timeframe.period, high, ignore_invalid_symbol=true)
+cr_l = request.security(sym_crypto, timeframe.period, low, ignore_invalid_symbol=true)
+cr_c = request.security(sym_crypto, timeframe.period, close, ignore_invalid_symbol=true)
+
+// ========================== WEIGHTED OHLC ==========================
+float total_weight =
+     (not na(cb_c) ? coinbase_weight : 0) +
+     (not na(kr_c) ? kraken_weight : 0) +
+     (not na(gm_c) ? gemini_weight : 0) +
+     (not na(cr_c) ? crypto_weight : 0)
+
+src_open =
+     total_weight > 0 ?
+     ((not na(cb_o) ? cb_o * coinbase_weight : 0) +
+      (not na(kr_o) ? kr_o * kraken_weight : 0) +
+      (not na(gm_o) ? gm_o * gemini_weight : 0) +
+      (not na(cr_o) ? cr_o * crypto_weight : 0)) / total_weight : open
+
+src_high =
+     total_weight > 0 ?
+     ((not na(cb_h) ? cb_h * coinbase_weight : 0) +
+      (not na(kr_h) ? kr_h * kraken_weight : 0) +
+      (not na(gm_h) ? gm_h * gemini_weight : 0) +
+      (not na(cr_h) ? cr_h * crypto_weight : 0)) / total_weight : high
+
+src_low =
+     total_weight > 0 ?
+     ((not na(cb_l) ? cb_l * coinbase_weight : 0) +
+      (not na(kr_l) ? kr_l * kraken_weight : 0) +
+      (not na(gm_l) ? gm_l * gemini_weight : 0) +
+      (not na(cr_l) ? cr_l * crypto_weight : 0)) / total_weight : low
+
+src_close =
+     total_weight > 0 ?
+     ((not na(cb_c) ? cb_c * coinbase_weight : 0) +
+      (not na(kr_c) ? kr_c * kraken_weight : 0) +
+      (not na(gm_c) ? gm_c * gemini_weight : 0) +
+      (not na(cr_c) ? cr_c * crypto_weight : 0)) / total_weight : close
+
+// ========================== TIME ==========================
+int offset_ms = 2000
+int window_ms = 900000
+int adjusted_time = time + offset_ms
+int time_in_window = adjusted_time % window_ms
+
+bool is_new_block = ta.change(int(adjusted_time / window_ms)) != 0
+bool is_recalc_mark = time_in_window >= 898000 and time_in_window < 899000
+
+var float auto_target_price = na
+var int minutes_passed = 0
+var int current_block_entries = 0
+
+if is_new_block or is_recalc_mark or na(auto_target_price)
+    auto_target_price := src_open
+    minutes_passed := 0
+    current_block_entries := 0
+else
+    minutes_passed := int(time_in_window / 60000)
+
+auto_target_price := nz(auto_target_price, src_open)
+
+bool manual_target_valid = use_manual_target and manual_target > 0
+float target_price = manual_target_valid ? manual_target : auto_target_price
+
+bool trade_zone = minutes_passed >= lockout_mins and minutes_passed < macro_window - 1
+bool force_settle_now = minutes_passed >= macro_window - 1
+
+// ========================== TECHNICALS ==========================
+fast_ema = ta.ema(src_close, ema_length)
+ema_slope_up = fast_ema > fast_ema[1]
+ema_slope_down = fast_ema < fast_ema[1]
+
+j_rsi = ta.rsi(src_close, jewel_rsi_len)
+j_lowest_rsi  = ta.lowest(j_rsi, jewel_stoch_len)
+j_highest_rsi = ta.highest(j_rsi, jewel_stoch_len)
+j_raw_stoch   = (j_highest_rsi - j_lowest_rsi) > 0 ? ((j_rsi - j_lowest_rsi) / (j_highest_rsi - j_lowest_rsi)) * 100 : 50
+
+jewel_line_k = ta.sma(j_raw_stoch, jewel_k)
+jewel_line_d = ta.sma(jewel_line_k, jewel_d)
+
+bool jewel_bullish_momentum = jewel_line_k > jewel_line_d and jewel_line_k > 45
+bool jewel_bearish_momentum = jewel_line_k < jewel_line_d and jewel_line_k < 55
+bool jewel_overbought = jewel_line_k >= 80
+bool jewel_oversold   = jewel_line_k <= 20
+
+float price_delta = src_close - target_price
+float historical_stddev = ta.stdev(price_delta, exhaust_lookback)
+float upper_exhaustion_band = target_price + historical_stddev * exhaust_multiplier
+float lower_exhaustion_band = target_price - historical_stddev * exhaust_multiplier
+
+bool price_is_overextended_up   = src_close >= upper_exhaustion_band
+bool price_is_overextended_down = src_close <= lower_exhaustion_band
+
+// ========================== BODY STRENGTH ==========================
+float candle_range = src_high - src_low
+float candle_body = math.abs(src_close - src_open)
+float body_strength = candle_range > 0 ? candle_body / candle_range : 0
+
+bool bull_body = src_close > src_open
+bool bear_body = src_close < src_open
+
+// ========================== REVERSION ENGINE ==========================
+float rev_basis = ta.sma(src_close, rev_dev_len)
+float rev_dev = ta.stdev(src_close, rev_dev_len)
+float rev_upper_band = rev_basis + rev_dev * rev_threshold
+float rev_lower_band = rev_basis - rev_dev * rev_threshold
+
+int rev_bars_since = ta.barssince(is_new_block)
+bool rev_is_early = rev_bars_since < rev_early_limit
+
+float rev_bar_range = src_high - src_low
+float upperWick = src_high - math.max(src_open, src_close)
+float lowerWick = math.min(src_open, src_close) - src_low
+
+bool upperRejection = rev_bar_range > 0 ? upperWick / rev_bar_range > rev_wick_threshold : false
+bool lowerRejection = rev_bar_range > 0 ? lowerWick / rev_bar_range > rev_wick_threshold : false
+
+bool reversal_no = rev_is_early and src_high >= rev_upper_band and upperRejection
+bool reversal_yes = rev_is_early and src_low <= rev_lower_band and lowerRejection
+
+// ========================== WATCH / CONFIRM PREDICT ENGINE ==========================
+// WATCH = warning only. Does NOT enter.
+bool watch_up =
+     trade_zone and
+     minutes_passed <= watch_minutes_limit and
+     src_close > target_price + watch_buffer and
+     bull_body and
+     body_strength >= watch_body_min and
+     jewel_line_k > jewel_line_k[1]
+
+bool watch_down =
+     trade_zone and
+     minutes_passed <= watch_minutes_limit and
+     src_close < target_price - watch_buffer and
+     bear_body and
+     body_strength >= watch_body_min and
+     jewel_line_k < jewel_line_k[1]
+
+// CONFIRM = actual entry condition.
+bool confirm_predict_up =
+     watch_up and
+     src_close > fast_ema and
+     ema_slope_up and
+     jewel_line_k > jewel_line_d and
+     src_close > target_price + confirm_buffer and
+     not reversal_no and
+     not price_is_overextended_up
+
+bool confirm_predict_down =
+     watch_down and
+     src_close < fast_ema and
+     ema_slope_down and
+     jewel_line_k < jewel_line_d and
+     src_close < target_price - confirm_buffer and
+     not reversal_yes and
+     not price_is_overextended_down
+
+// ========================== ORIGINAL / BACKUP SIGNAL LOGIC ==========================
+bool standard_buy_yes =
+     trade_zone and
+     price_delta > 0 and
+     src_close > fast_ema and
+     jewel_bullish_momentum and
+     ema_slope_up and
+     not price_is_overextended_up and
+     not reversal_no
+
+bool standard_buy_no =
+     trade_zone and
+     price_delta < 0 and
+     src_close < fast_ema and
+     jewel_bearish_momentum and
+     ema_slope_down and
+     not price_is_overextended_down and
+     not reversal_yes
+
+bool buy_yes = confirm_predict_up or standard_buy_yes
+bool buy_no  = confirm_predict_down or standard_buy_no
+
+bool aggressive_flip_down = trade_zone and price_delta < 0 and src_close < fast_ema and ema_slope_down
+bool aggressive_flip_up   = trade_zone and price_delta > 0 and src_close > fast_ema and ema_slope_up
+
+bool trade_reversal_no  = trade_zone and aggressive_flip_up and price_is_overextended_up and jewel_overbought and ta.crossunder(jewel_line_k, jewel_line_d)
+bool trade_reversal_yes = trade_zone and aggressive_flip_down and price_is_overextended_down and jewel_oversold and ta.crossover(jewel_line_k, jewel_line_d)
+
+// ========================== EXECUTION ==========================
+var int last_trade_bar = 0
+bool bar_cooldown = bar_index > last_trade_bar
+
+if force_settle_now
+    strategy.close_all(comment="Contract Settled")
+
+if (aggressive_flip_down or trade_reversal_no) and strategy.position_size > 0 and not force_settle_now
+    strategy.close_all(comment="Flipped Down")
+    strategy.entry("Predict DOWN (NO)", strategy.short)
+    current_block_entries := 1
+    last_trade_bar := bar_index
+
+if (aggressive_flip_up or trade_reversal_yes) and strategy.position_size < 0 and not force_settle_now
+    strategy.close_all(comment="Flipped Up")
+    strategy.entry("Predict UP (YES)", strategy.long)
+    current_block_entries := 1
+    last_trade_bar := bar_index
+
+bool under_tier_limit = current_block_entries < max_tiers_per_block
+
+if buy_yes and not force_settle_now and under_tier_limit and bar_cooldown and strategy.position_size >= 0
+    strategy.entry("Predict UP (YES)", strategy.long)
+    label.new(bar_index, src_low, confirm_predict_up ? "CONFIRM UP" : "Predict UP", color=color.blue, textcolor=color.white, style=label.style_label_up)
+    current_block_entries += 1
+    last_trade_bar := bar_index
+
+if buy_no and not force_settle_now and under_tier_limit and bar_cooldown and strategy.position_size <= 0
+    strategy.entry("Predict DOWN (NO)", strategy.short)
+    label.new(bar_index, src_high, confirm_predict_down ? "CONFIRM DOWN" : "Predict DOWN", color=color.red, textcolor=color.white, style=label.style_label_down)
+    current_block_entries += 1
+    last_trade_bar := bar_index
+
+// ========================== HUD ==========================
+int exchange_count = 0
+exchange_count += not na(cb_c) ? 1 : 0
+exchange_count += not na(kr_c) ? 1 : 0
+exchange_count += not na(gm_c) ? 1 : 0
+exchange_count += not na(cr_c) ? 1 : 0
+
+float highest_price = math.max(math.max(cb_c, kr_c), math.max(gm_c, cr_c))
+float lowest_price  = math.min(math.min(cb_c, kr_c), math.min(gm_c, cr_c))
+float spread = highest_price - lowest_price
+
+var table hud = table.new(position.top_right, 2, 17, border_width=1)
+
+if barstate.islast
+    table.cell(hud, 0, 0, "WATCH / CONFIRM HUD", bgcolor=color.black, text_color=color.aqua)
+    table.cell(hud, 1, 0, "VALUE", bgcolor=color.black, text_color=color.aqua)
+
+    table.cell(hud, 0, 1, "Signal State", text_color=color.yellow)
+    table.cell(hud, 1, 1, confirm_predict_up ? "CONFIRM UP" : confirm_predict_down ? "CONFIRM DOWN" : watch_up ? "WATCH UP" : watch_down ? "WATCH DOWN" : "WAIT", text_color=color.yellow)
+
+    table.cell(hud, 0, 2, "Target Mode", text_color=color.yellow)
+    table.cell(hud, 1, 2, manual_target_valid ? "MANUAL" : "AUTO", text_color=color.yellow)
+
+    table.cell(hud, 0, 3, "Target", text_color=color.orange)
+    table.cell(hud, 1, 3, str.tostring(target_price, format.mintick), text_color=color.orange)
+
+    table.cell(hud, 0, 4, "Weighted Close", text_color=color.aqua)
+    table.cell(hud, 1, 4, str.tostring(src_close, format.mintick), text_color=color.aqua)
+
+    table.cell(hud, 0, 5, "Delta", text_color=color.aqua)
+    table.cell(hud, 1, 5, str.tostring(price_delta, format.mintick), text_color=color.aqua)
+
+    table.cell(hud, 0, 6, "EMA Slope", text_color=color.aqua)
+    table.cell(hud, 1, 6, ema_slope_up ? "UP" : ema_slope_down ? "DOWN" : "FLAT", text_color=color.aqua)
+
+    table.cell(hud, 0, 7, "Jewel K/D", text_color=color.aqua)
+    table.cell(hud, 1, 7, str.tostring(jewel_line_k, "#.##") + " / " + str.tostring(jewel_line_d, "#.##"), text_color=color.aqua)
+
+    table.cell(hud, 0, 8, "Body Strength", text_color=color.aqua)
+    table.cell(hud, 1, 8, str.tostring(body_strength * 100, "#.##") + "%", text_color=color.aqua)
+
+    table.cell(hud, 0, 9, "Opposite Rev", text_color=color.yellow)
+    table.cell(hud, 1, 9, reversal_no ? "REV NO" : reversal_yes ? "REV YES" : "None", text_color=color.yellow)
+
+    table.cell(hud, 0, 10, "Exchanges", text_color=color.aqua)
+    table.cell(hud, 1, 10, str.tostring(exchange_count) + " / 4", text_color=color.aqua)
+
+    table.cell(hud, 0, 11, "Spread", text_color=color.aqua)
+    table.cell(hud, 1, 11, str.tostring(spread, format.mintick), text_color=color.aqua)
+
+    table.cell(hud, 0, 16, "Mode", text_color=color.aqua)
+    table.cell(hud, 1, 16, "FAST=WATCH ONLY", text_color=color.aqua)
+
+// ========================== VISUALIZATION ==========================
+bool avg_up = src_close >= src_open
+
+plotcandle(show_avg_candles ? src_open : na, show_avg_candles ? src_high : na, show_avg_candles ? src_low : na, show_avg_candles ? src_close : na, title="Weighted Average Candles", color=avg_up ? color.new(color.green, 10) : color.new(color.red, 10), wickcolor=color.gray, bordercolor=avg_up ? color.green : color.red)
+
+plot(show_exchange_lines ? cb_c : na, title="Coinbase Close", color=color.yellow)
+plot(show_exchange_lines ? kr_c : na, title="Kraken Close", color=color.blue)
+plot(show_exchange_lines ? gm_c : na, title="Gemini Close", color=color.purple)
+plot(show_exchange_lines ? cr_c : na, title="Crypto.com Close", color=color.orange)
+
+plot(src_close, title="Weighted Average Close", color=color.white, linewidth=2)
+plot(target_price, title="Manual/Auto Kalshi Target", color=color.orange, linewidth=2, style=plot.style_stepline)
+plot(auto_target_price, title="Auto Weighted Open Target", color=color.new(color.gray, 45), linewidth=1, style=plot.style_stepline)
+plot(fast_ema, title="Weighted 9 EMA", color=color.blue, linewidth=1)
+
+plot(upper_exhaustion_band, title="Upper Overextended Band", color=color.new(color.red, 40), linewidth=1)
+plot(lower_exhaustion_band, title="Lower Overextended Band", color=color.new(color.green, 40), linewidth=1)
+
+plot(rev_basis, color=color.gray, title="Reversion Fair Value")
+plot(rev_upper_band, color=color.red, title="Reversion Overbought Limit")
+plot(rev_lower_band, color=color.green, title="Reversion Oversold Limit")
+
+plotshape(watch_up, title="WATCH UP", style=shape.labelup, location=location.belowbar, color=color.new(color.blue, 65), textcolor=color.white, size=size.tiny, text="WATCH UP")
+plotshape(watch_down, title="WATCH DOWN", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 65), textcolor=color.white, size=size.tiny, text="WATCH DOWN")
+
+plotshape(confirm_predict_up, title="CONFIRM UP", style=shape.labelup, location=location.belowbar, color=color.blue, textcolor=color.white, size=size.small, text="CONFIRM UP")
+plotshape(confirm_predict_down, title="CONFIRM DOWN", style=shape.labeldown, location=location.abovebar, color=color.red, textcolor=color.white, size=size.small, text="CONFIRM DOWN")
+
+plotshape(reversal_no, title="Reversion NO", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, text="REV NO")
+plotshape(reversal_yes, title="Reversion YES", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, text="REV YES")

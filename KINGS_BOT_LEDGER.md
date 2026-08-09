@@ -530,16 +530,102 @@ Design the Legacy Shadow Study specification before authorizing Codex to impleme
 
 ---
 
+## KB-150 — PRE-LEGACY DEVELOPMENT BASELINE
+
+**Status:** VERIFIED EVIDENCE-PRESERVATION BASELINE
+
+**Date:** August 9, 2026
+
+### Objective
+Freeze and document everything presently known about KINGS BOT before Legacy/V6-derived experimentation begins, without falsely representing the unfinished bot as a completed production release or reconstructing missing source from screenshots.
+
+### State Definition
+This checkpoint represents **the development state reached before Legacy Shadow experimentation**, not a claim that KINGS BOT was complete, runtime-certified, or free of defects.
+
+The currently available evidence shows that KINGS BOT had substantial implemented architecture and functionality while remaining under active development and stabilization.
+
+### Evidence Vault Created
+- `pre_experiment/README.md`
+- `pre_experiment/BOT_STATE_MANIFEST.md`
+- `pre_experiment/KNOWN_SOURCE_FILES.md`
+- `pre_experiment/KNOWN_BEHAVIOR.md`
+- `pre_experiment/KNOWN_REGRESSIONS.md`
+- `pre_experiment/SOURCE_RECOVERY_STATUS.md`
+- `pre_experiment/KB-150_PRE_LEGACY_DEVELOPMENT_BASELINE.md`
+
+### Preservation Boundaries
+- Evidence and source fragments are preserved as historical development evidence.
+- Screenshots and fragments must never be represented as a complete recovered production source tree.
+- Missing source must not be silently reconstructed and called original.
+- Existing bot history must not be rewritten to make the unfinished bot appear completed.
+- Legacy Shadow work must remain isolated from preserved historical evidence.
+
+### Known Historical Source Components
+Evidence identifies source components including:
+- `bot.py`
+- `brti_feed.py`
+- `chart.py`
+- `chart_image.py`
+- `cycle_log.py`
+- `data_pull_test.py`
+- `hunt_lines.py`
+- `kalshi_market.py`
+- `record.py`
+- `requirements.txt`
+- `signal_engine.py`
+- `whale_feed.py`
+- `Procfile`
+- README documentation
+
+This list records observed evidence only and is not asserted to be exhaustive.
+
+### Known Development State
+Evidence shows implemented or partially implemented systems involving:
+- BRTI feed and settlement awareness
+- Kalshi cycle tracking
+- Signal/callout behavior
+- Whale monitoring
+- Discord delivery
+- Live chart/image generation
+- Cycle countdown presentation
+- Settlement/past-cycle handling
+- Record tracking
+- Backup and dashboard tasks
+- Multi-service asynchronous runtime supervision
+
+### Known Unresolved State
+KB-120 remains pending runtime verification. Historical evidence includes structural and runtime regressions involving indentation/function scope and missing runtime names such as `chart_loop`, `cycle_timer_loop`, and dashboard `web` references.
+
+These unresolved items remain part of the preserved pre-Legacy development state and must not be erased by later experimentation.
+
+### Branch Protection Model
+- `main` — authoritative preservation/ledger line
+- `baseline/pre-legacy-kb140` — frozen pre-experiment preservation reference created before Legacy Shadow development
+- `experiment/legacy-shadow` — isolated experimental branch; no automatic production authority
+
+### QA Result
+PASS for evidence preservation.
+
+This checkpoint verifies that the known historical state and its limitations are explicitly documented before experimentation. It does **not** certify complete recovery of the original KINGS BOT source and does **not** promote KB-120 to runtime-verified.
+
+### Regression Risk
+LOW for preservation activity.
+
+### Next Action
+Proceed to Legacy Shadow Study specification and isolated experimental development. Any future production integration requires recovered/accessible source, impact analysis, regression testing, ChatGPT QA/QC, Product Owner approval, and a new checkpoint.
+
+---
+
 # CURRENT ACTIVE WORK
 
 ### Feature
-Legacy Shadow Study specification, while preserving the existing KINGS BOT runtime stabilization work.
+Legacy Shadow Study specification, while preserving the existing KINGS BOT runtime stabilization work and the KB-150 pre-Legacy development baseline.
 
 ### Intended Behavior
 Evaluate selected V6 concepts in isolated shadow mode without granting them production signal authority.
 
 ### Technical State
-KB-140 preservation baseline is VERIFIED. KB-120 remains pending runtime/deployment verification.
+KB-140 V6 preservation is VERIFIED. KB-150 pre-Legacy evidence preservation is VERIFIED. KB-120 remains pending runtime/deployment verification.
 
 ### Required Next Step
 Define the Shadow Study inputs, outputs, comparison metrics, data boundaries, and Codex implementation instructions.
@@ -577,6 +663,8 @@ Before modifying KINGS BOT:
 4. Identify systems affected by the requested change.
 5. Preserve protected behavior unless explicitly authorized.
 6. Do not refactor unrelated systems merely for style.
+7. Treat `pre_experiment/` as historical evidence, not working source.
+8. Keep Legacy-derived work isolated on the authorized experimental branch until QA/QC and Product Owner approval.
 
 Before completing work:
 
@@ -664,7 +752,10 @@ Describe next development action.
 
 # CURRENT REFERENCE POINTS
 
-**Current verified preservation checkpoint:**  
+**Current verified pre-experiment baseline:**  
+KB-150 — PRE-LEGACY DEVELOPMENT BASELINE
+
+**Current verified V6 preservation checkpoint:**  
 KB-140 — LEGACY V6 PRESERVATION BASELINE
 
 **Current development operating checkpoint:**  
@@ -677,7 +768,7 @@ KB-120 — STRUCTURAL REPAIR BASELINE
 KB-090 — KINGS BOT v2.6 MILESTONE
 
 **Next available major checkpoint:**  
-KB-150
+KB-160
 
 ---
 

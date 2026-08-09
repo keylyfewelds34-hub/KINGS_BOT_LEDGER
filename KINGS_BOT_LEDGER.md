@@ -476,19 +476,73 @@ Verification should consider:
 
 ---
 
+## KB-140 — LEGACY V6 PRESERVATION BASELINE
+
+**Status:** VERIFIED
+
+**Date:** August 9, 2026
+
+### Objective
+Preserve BetsAndThreats V6 as an immutable research reference before any Legacy Shadow or hybrid experimentation begins.
+
+### Changes
+- Created a protected V6 master reference and preservation rules.
+- Preserved the original Pine v6 source as `legacy/ORIGINAL_V6_READ_ONLY.pine`.
+- Created the Legacy V6 research audit framework.
+- Created an isolated experimental quarantine area.
+- Corrected malformed repository paths created during manual GitHub navigation.
+- Removed the malformed duplicate V6 path after verifying the correct protected copy.
+- Corrected the experimental README filename and removed the malformed duplicate.
+
+### Files
+- `legacy/MASTER_BETSANDTHREATS_V6.md`
+- `legacy/ORIGINAL_V6_READ_ONLY.pine`
+- `legacy/LEGACY_AUDIT.md`
+- `legacy/experimental/README.md`
+
+### Protected Systems Verified
+- Original V6 source content preserved.
+- Original V6 source remains separate from KINGS BOT production logic.
+- Experimental Legacy work has zero production authority.
+- No KINGS BOT signal, entry, confirmation, flip, exit, settlement, BRTI, whale, Discord, chart, backup, or dashboard logic was modified as part of this preservation checkpoint.
+
+### QA Result
+PASS.
+
+Repository inspection confirmed the intended preservation structure and the original V6 Pine strategy declaration at the protected path. The malformed `.pinelegacy/` duplicate was removed. The malformed `openREADME.md` duplicate was replaced by the intended `legacy/experimental/README.md`.
+
+### Known Issues
+- `KB-120` remains pending runtime verification and is not promoted by this checkpoint.
+- Legacy V6 has not yet been ported, shadow-tested, or granted production authority.
+
+### Regression Risk
+LOW
+
+### Preservation Commits
+- Original V6 preservation: `a6635b0eb59db094e4c694d1417d9932c108cf97`
+- Correct protected V6 path created: `a3fbd7b1fa9636f9e21b0427acff4404345d9387`
+- Malformed V6 path removed: `1187c26e3f1fbee90f38e682a88e2c10973b5d0f`
+- Correct experimental README created: `8d580d6e4778d7cc7183f6a18d6e7eeb2d6d26b4`
+- Malformed experimental README removed / final preservation state: `80a84b6edc6f6da42f6737460145fdc8695ce72a`
+
+### Next Action
+Design the Legacy Shadow Study specification before authorizing Codex to implement any V6-derived experimental logic.
+
+---
+
 # CURRENT ACTIVE WORK
 
 ### Feature
-Live NEW CYCLE countdown + progress display.
+Legacy Shadow Study specification, while preserving the existing KINGS BOT runtime stabilization work.
 
 ### Intended Behavior
-Update the same NEW CYCLE Discord message approximately every 3 seconds.
+Evaluate selected V6 concepts in isolated shadow mode without granting them production signal authority.
 
 ### Technical State
-Structural repairs have been performed.
+KB-140 preservation baseline is VERIFIED. KB-120 remains pending runtime/deployment verification.
 
 ### Required Next Step
-Runtime/deployment verification.
+Define the Shadow Study inputs, outputs, comparison metrics, data boundaries, and Codex implementation instructions.
 
 ---
 
@@ -610,22 +664,20 @@ Describe next development action.
 
 # CURRENT REFERENCE POINTS
 
+**Current verified preservation checkpoint:**  
+KB-140 — LEGACY V6 PRESERVATION BASELINE
+
 **Current development operating checkpoint:**  
 KB-130 — DEVELOPMENT OS / CODEX TRANSITION
 
 **Current technical stabilization target:**  
 KB-120 — STRUCTURAL REPAIR BASELINE
 
-**Current active implementation:**  
-KB-100 — CYCLE TIMER / NEW-CYCLE PRESENTATION
-
 **Major historical product reference:**  
 KB-090 — KINGS BOT v2.6 MILESTONE
 
 **Next available major checkpoint:**  
-KB-140
-
-Do not create KB-140 until another meaningful engineering state has been reached and QA/QC'd.
+KB-150
 
 ---
 
